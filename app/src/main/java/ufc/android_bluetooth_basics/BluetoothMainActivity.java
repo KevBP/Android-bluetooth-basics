@@ -2,7 +2,11 @@ package ufc.android_bluetooth_basics;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -22,6 +26,17 @@ public class BluetoothMainActivity extends AppCompatActivity {
     private final int DISCOVERABLE_TIMEOUT = 0;
     private BluetoothAdapter bluetoothAdapter;
 
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (BluetoothDevice.ACTION_FOUND.equals(intent.getAction())) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                snakeBar("Device found: " + device.getName());
+                Log.d(TAG, "Device found: " + device.getName());
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -33,10 +48,18 @@ public class BluetoothMainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                if (bluetoothAdapter.startDiscovery()) {
+                    snakeBar(R.string.start_discovering);
+                    Log.d(TAG, "Discovering start");
+                } else {
+                    snakeBar(R.string.start_discovering_error);
+                    Log.d(TAG, "Error: can't start discovering");
+                }
             }
         });
+
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(broadcastReceiver, filter);
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
@@ -86,11 +109,15 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        super.onDestroy();
         if (bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.disable();
             Log.d(TAG, "Disable bluetooth");
         }
-        super.onDestroy();
+        if (bluetoothAdapter != null) {
+            bluetoothAdapter.cancelDiscovery();
+        }
+        this.unregisterReceiver(broadcastReceiver);
     }
 
     private void setDiscoverable() {
@@ -108,5 +135,9 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
     private void snakeBar(int resId) {
         Snackbar.make(findViewById(android.R.id.content), resId, Snackbar.LENGTH_LONG).setAction("Action", null).show();
+    }
+
+    private void snakeBar(String text) {
+        Snackbar.make(findViewById(android.R.id.content), text, Snackbar.LENGTH_LONG).setAction("Action", null).show();
     }
 }

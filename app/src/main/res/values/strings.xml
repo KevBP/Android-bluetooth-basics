@@ -5,4 +5,6 @@
     <string name="not_support_bluetooth">Device does not support Bluetooth</string>
     <string name="request_enable_bluetooth_error">Bluetooth not enabled</string>
     <string name="set_discoverable">This device is now discoverable</string>
+    <string name="start_discovering">Discovery has successfully started</string>
+    <string name="start_discovering_error">Error on start discovery</string>
 </resources>
