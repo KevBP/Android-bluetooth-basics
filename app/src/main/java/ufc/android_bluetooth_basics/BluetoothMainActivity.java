@@ -49,6 +49,10 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 snakeBar("Device found: " + device.getName());
                 Log.d(TAG, "Device found: " + device.getName());
             }
+            else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
+                snakeBar(R.string.end_discovering);
+                Log.d(TAG, "Ended discovering");
+            }
         }
     };
 
@@ -80,6 +84,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
         });
 
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(broadcastReceiver, filter);
+        filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(broadcastReceiver, filter);
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();

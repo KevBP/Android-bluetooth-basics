@@ -7,4 +7,5 @@
     <string name="set_discoverable">This device is now discoverable</string>
     <string name="start_discovering">Discovery has successfully started</string>
     <string name="start_discovering_error">Error on start discovery</string>
+    <string name="end_discovering">Discovery has ended</string>
 </resources>
