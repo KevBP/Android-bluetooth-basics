@@ -16,21 +16,36 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BluetoothMainActivity extends AppCompatActivity {
 
-    private static final int REQUEST_ENABLE_BLUETOOTH = 1;
     private final String TAG = "BLUETOOTH_BASICS";
-    private final int DISCOVERABLE_TIMEOUT = 0;
+
+    private ListView listViewDevices;
+
     private BluetoothAdapter bluetoothAdapter;
+    private static final int REQUEST_ENABLE_BLUETOOTH = 1;
+    private final int DISCOVERABLE_TIMEOUT = 0;
+
+    private List<BluetoothDevice> bluetoothDevices;
+    private List<String> bluetoothDevicesString;
+    private ArrayAdapter<String> arrayAdapter;
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (BluetoothDevice.ACTION_FOUND.equals(intent.getAction())) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (!bluetoothDevices.contains(device)) {
+                    addBluetoothDevice(device);
+                    arrayAdapter.notifyDataSetChanged();
+                }
                 snakeBar("Device found: " + device.getName());
                 Log.d(TAG, "Device found: " + device.getName());
             }
@@ -43,6 +58,12 @@ public class BluetoothMainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        listViewDevices = (ListView) findViewById(R.id.listViewDevices);
+        bluetoothDevices = new ArrayList<BluetoothDevice>();
+        bluetoothDevicesString = new ArrayList<String>();
+        arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, bluetoothDevicesString);
+        listViewDevices.setAdapter(arrayAdapter);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -131,6 +152,21 @@ public class BluetoothMainActivity extends AppCompatActivity {
         }
         snakeBar(R.string.set_discoverable);
         Log.d(TAG, "This device is discoverable");
+    }
+
+    private void addBluetoothDevice(BluetoothDevice device) {
+        bluetoothDevices.add(device);
+        bluetoothDevicesString.add(device.getName() + "\n" + device.getAddress() + "\nFound");
+    }
+
+    private void removeBluetoothDevice(BluetoothDevice device) {
+        int index = bluetoothDevices.indexOf(device);
+        bluetoothDevices.remove(index);
+        bluetoothDevicesString.remove(index);
+    }
+
+    private BluetoothDevice getBluetoothDevice(BluetoothDevice device) {
+        return bluetoothDevices.get(bluetoothDevices.indexOf(device));
     }
 
     private void snakeBar(int resId) {
