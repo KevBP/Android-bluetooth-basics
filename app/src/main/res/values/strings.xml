@@ -8,4 +8,8 @@
     <string name="start_discovering">Discovery has successfully started</string>
     <string name="start_discovering_error">Error on start discovery</string>
     <string name="end_discovering">Discovery has ended</string>
+    <string name="start_server">Start server</string>
+    <string name="stop_server">Stop server</string>
+    <string name="new_connection">New connection</string>
+    <string name="new_socket">New socket</string>
 </resources>

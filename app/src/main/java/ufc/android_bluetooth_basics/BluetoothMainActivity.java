@@ -3,6 +3,8 @@ package ufc.android_bluetooth_basics;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -16,26 +18,31 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class BluetoothMainActivity extends AppCompatActivity {
 
-    private final String TAG = "BLUETOOTH_BASICS";
-
-    private ListView listViewDevices;
-
-    private BluetoothAdapter bluetoothAdapter;
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
+    private final String TAG = "BLUETOOTH_BASICS";
+    private final String NAME = "BluetoothBasics";
+    private final UUID MY_UUID = UUID.fromString("46b70f01-7bd0-44f9-8dcb-22b3e0e00fb5");
     private final int DISCOVERABLE_TIMEOUT = 0;
-
+    private ListView listViewDevices;
+    private BluetoothAdapter bluetoothAdapter;
     private List<BluetoothDevice> bluetoothDevices;
     private List<String> bluetoothDevicesString;
     private ArrayAdapter<String> arrayAdapter;
+
+    private AcceptThread acceptThread;
+    private ConnectThread connectThread;
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -68,6 +75,16 @@ public class BluetoothMainActivity extends AppCompatActivity {
         bluetoothDevicesString = new ArrayList<String>();
         arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, bluetoothDevicesString);
         listViewDevices.setAdapter(arrayAdapter);
+        listViewDevices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                connectThread = new ConnectThread(getBluetoothDeviceFromIndex(position));
+                connectThread.start();
+                BluetoothDevice device = getBluetoothDeviceFromIndex(position);
+                bluetoothDevicesString.set(position, device.getName() + "\n" + device.getAddress() + "\nConnected");
+                arrayAdapter.notifyDataSetChanged();
+            }
+        });
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -158,6 +175,11 @@ public class BluetoothMainActivity extends AppCompatActivity {
         }
         snakeBar(R.string.set_discoverable);
         Log.d(TAG, "This device is discoverable");
+
+        if (acceptThread == null) {
+            acceptThread = new AcceptThread();
+            acceptThread.start();
+        }
     }
 
     private void addBluetoothDevice(BluetoothDevice device) {
@@ -175,11 +197,105 @@ public class BluetoothMainActivity extends AppCompatActivity {
         return bluetoothDevices.get(bluetoothDevices.indexOf(device));
     }
 
+    private BluetoothDevice getBluetoothDeviceFromIndex(int index) {
+        return bluetoothDevices.get(index);
+    }
+
     private void snakeBar(int resId) {
         Snackbar.make(findViewById(android.R.id.content), resId, Snackbar.LENGTH_LONG).setAction("Action", null).show();
     }
 
     private void snakeBar(String text) {
         Snackbar.make(findViewById(android.R.id.content), text, Snackbar.LENGTH_LONG).setAction("Action", null).show();
+    }
+
+    private class AcceptThread extends Thread {
+        private final BluetoothServerSocket bluetoothServerSocket;
+
+        public AcceptThread() {
+            BluetoothServerSocket tmp = null;
+            try {
+                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
+            } catch (IOException e) { }
+            bluetoothServerSocket = tmp;
+        }
+
+        public void run() {
+            Log.d(TAG, "Start server");
+            snakeBar(R.string.start_server);
+            BluetoothSocket socket = null;
+            while (true) {
+                try {
+                    socket = bluetoothServerSocket.accept();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    break;
+                }
+                if (socket != null) {
+                    Log.d(TAG, "Connection accepted");
+                    snakeBar(R.string.new_connection);
+                    // TODO manage connected socket
+                    /*try {
+                        bluetoothServerSocket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Log.d(TAG, "Can't stop server");
+                    }
+                    break;*/
+                }
+            }
+            Log.d(TAG, "Stop server");
+            snakeBar(R.string.stop_server);
+        }
+
+        public void cancel() {
+            try {
+                bluetoothServerSocket.close();
+            } catch (IOException e) { }
+        }
+    }
+
+    private class ConnectThread extends Thread {
+        private final BluetoothSocket bluetoothSocket;
+        private final BluetoothDevice bluetoothDevice;
+
+        public ConnectThread(BluetoothDevice device) {
+            BluetoothSocket tmp = null;
+            bluetoothDevice = device;
+
+            try {
+                tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+            } catch (IOException e) {
+                snakeBar("PROBLEME MEC !");
+            }
+            bluetoothSocket = tmp;
+            Log.d(TAG, "Socket created");
+            snakeBar(R.string.new_socket);
+        }
+
+        public void run() {
+            if (bluetoothAdapter.isDiscovering()) {
+                bluetoothAdapter.cancelDiscovery();
+                snakeBar(R.string.end_discovering);
+                Log.d(TAG, "Ended discovering");
+            }
+
+            try {
+                bluetoothSocket.connect();
+            } catch (IOException connectException) {
+                try {
+                    bluetoothSocket.close();
+                } catch (IOException closeException) { }
+                return;
+            }
+
+            // TODO manage connected socket
+        }
+
+        public void cancel() {
+            try {
+                bluetoothSocket.close();
+            } catch (IOException e) { }
+        }
     }
 }
