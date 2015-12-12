@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -50,23 +49,32 @@ public class BluetoothMainActivity extends AppCompatActivity {
     private AcceptThread acceptThread;
     private ConnectThread connectThread;
     private ConnectedThread connectedThread;
-    private Handler handler = new Handler(); // TODO
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (BluetoothDevice.ACTION_FOUND.equals(intent.getAction())) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (!bluetoothDevices.contains(device)) {
                     addBluetoothDevice(device);
                     arrayAdapter.notifyDataSetChanged();
                 }
-                snakeBar("Device found: " + device.getName());
+                snackBar(R.string.found);
                 Log.d(TAG, "Device found: " + device.getName());
-            }
-            else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
-                snakeBar(R.string.end_discovering);
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
+                snackBar(R.string.end_discovering);
                 Log.d(TAG, "Ended discovering");
+            } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(intent.getAction())) {
+                if (!bluetoothDevices.contains(device)) {
+                    addBluetoothDevice(device);
+                }
+                changeStatusBluetoothDevice(bluetoothDevices.indexOf(device), "Connected");
+                arrayAdapter.notifyDataSetChanged();
+                snackBar(R.string.new_connection);
+            } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(intent.getAction())) {
+                removeBluetoothDevice(device);
+                arrayAdapter.notifyDataSetChanged();
+                snackBar(R.string.loose_connection);
             }
         }
     };
@@ -99,10 +107,10 @@ public class BluetoothMainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if (bluetoothAdapter.startDiscovery()) {
-                    snakeBar(R.string.start_discovering);
+                    snackBar(R.string.start_discovering);
                     Log.d(TAG, "Discovering start");
                 } else {
-                    snakeBar(R.string.start_discovering_error);
+                    snackBar(R.string.start_discovering_error);
                     Log.d(TAG, "Error: can't start discovering");
                 }
             }
@@ -112,10 +120,14 @@ public class BluetoothMainActivity extends AppCompatActivity {
         registerReceiver(broadcastReceiver, filter);
         filter = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(broadcastReceiver, filter);
+        filter = new IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED);
+        registerReceiver(broadcastReceiver, filter);
+        filter = new IntentFilter(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        registerReceiver(broadcastReceiver, filter);
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
-            snakeBar(R.string.not_support_bluetooth);
+            snackBar(R.string.not_support_bluetooth);
             Log.d(TAG, "Device does not support Bluetooth");
         } else {
             if (!bluetoothAdapter.isEnabled()) {
@@ -151,7 +163,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 if (resultCode == Activity.RESULT_OK) {
                     setDiscoverable();
                 } else {
-                    snakeBar(R.string.request_enable_bluetooth_error);
+                    snackBar(R.string.request_enable_bluetooth_error);
                     Log.d(TAG, "Bluetooth not enabled");
                     this.finish();
                 }
@@ -181,7 +193,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
             Log.d(TAG, "Error: this device is not discoverable");
             e.printStackTrace();
         }
-        snakeBar(R.string.set_discoverable);
+        snackBar(R.string.set_discoverable);
         Log.d(TAG, "This device is discoverable");
 
         if (acceptThread == null) {
@@ -193,6 +205,11 @@ public class BluetoothMainActivity extends AppCompatActivity {
     private void addBluetoothDevice(BluetoothDevice device) {
         bluetoothDevices.add(device);
         bluetoothDevicesString.add(device.getName() + "\n" + device.getAddress() + "\nFound");
+    }
+
+    private void changeStatusBluetoothDevice(int index, String status) {
+        BluetoothDevice device = bluetoothDevices.get(index);
+        bluetoothDevicesString.set(index, device.getName() + "\n" + device.getAddress() + "\n" + status);
     }
 
     private void removeBluetoothDevice(BluetoothDevice device) {
@@ -208,17 +225,15 @@ public class BluetoothMainActivity extends AppCompatActivity {
     private synchronized void connected(BluetoothSocket socket) {
         BluetoothDevice device = socket.getRemoteDevice();
         Log.d(TAG, "Connection accepted");
-        snakeBar(R.string.new_connection);
-
         connectedThread = new ConnectedThread(socket);
         connectedThread.start();
     }
 
-    private void snakeBar(int resId) {
+    private void snackBar(int resId) {
         Snackbar.make(findViewById(android.R.id.content), resId, Snackbar.LENGTH_LONG).setAction("Action", null).show();
     }
 
-    private void snakeBar(String text) {
+    private void snackBar(String text) {
         Snackbar.make(findViewById(android.R.id.content), text, Snackbar.LENGTH_LONG).setAction("Action", null).show();
     }
 
@@ -229,13 +244,14 @@ public class BluetoothMainActivity extends AppCompatActivity {
             BluetoothServerSocket tmp = null;
             try {
                 tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(NAME, MY_UUID);
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
             bluetoothServerSocket = tmp;
         }
 
         public void run() {
             Log.d(TAG, "Start server");
-            snakeBar(R.string.start_server);
+            //snackBar(R.string.start_server);
             BluetoothSocket socket = null;
             while (true) {
                 try {
@@ -256,13 +272,14 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 }
             }
             Log.d(TAG, "Stop server");
-            snakeBar(R.string.stop_server);
+            //snackBar(R.string.stop_server);
         }
 
         public void cancel() {
             try {
                 bluetoothServerSocket.close();
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
         }
     }
 
@@ -276,16 +293,17 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
             try {
                 tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
             bluetoothSocket = tmp;
             Log.d(TAG, "Socket created");
-            snakeBar(R.string.new_socket);
+            //snackBar(R.string.new_socket);
         }
 
         public void run() {
             if (bluetoothAdapter.isDiscovering()) {
                 bluetoothAdapter.cancelDiscovery();
-                snakeBar(R.string.end_discovering);
+                //snackBar(R.string.end_discovering);
                 Log.d(TAG, "Ended discovering");
             }
 
@@ -294,7 +312,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
             } catch (IOException connectException) {
                 try {
                     bluetoothSocket.close();
-                } catch (IOException closeException) { }
+                } catch (IOException closeException) {
+                }
                 return;
             }
 
@@ -304,7 +323,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
         public void cancel() {
             try {
                 bluetoothSocket.close();
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
         }
     }
 
@@ -314,7 +334,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
         private final InputStream inputStream;
         private final OutputStream outputStream;
         private ScheduledExecutorService messageLoopScheduler;
-        private byte test = (byte)(Math.random() * 100);
+        private byte test = (byte) (Math.random() * 100);
 
         public ConnectedThread(BluetoothSocket socket) {
             this.socket = socket;
@@ -325,7 +345,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
             try {
                 tmpIn = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
 
             inputStream = tmpIn;
             outputStream = tmpOut;
@@ -349,7 +370,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
             while (true) {
                 try {
                     bytes = inputStream.read(buffer);
-                    snakeBar("Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
+                    //snackBar("Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
+                    snackBar("Receive from " + device.getName());
                     Log.d(TAG, "Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
                 } catch (IOException e) {
                     break;
@@ -360,15 +382,18 @@ public class BluetoothMainActivity extends AppCompatActivity {
         public void write(byte[] bytes) {
             try {
                 outputStream.write(bytes);
-                snakeBar("Send " + String.valueOf(bytes[0])  + " : " + device.getName());
-                Log.d(TAG, "Send " + String.valueOf(bytes[0])  + " : " + device.getName());
-            } catch (IOException e) { }
+                //snackBar("Send " + String.valueOf(bytes[0])  + " : " + device.getName());
+                //snackBar("Send to " + device.getName());
+                Log.d(TAG, "Send " + String.valueOf(bytes[0]) + " : " + device.getName());
+            } catch (IOException e) {
+            }
         }
 
         public void cancel() {
             try {
                 socket.close();
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
         }
     }
 }
