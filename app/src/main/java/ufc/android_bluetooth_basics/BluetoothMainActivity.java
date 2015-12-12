@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -23,10 +24,15 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class BluetoothMainActivity extends AppCompatActivity {
 
@@ -43,6 +49,8 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
     private AcceptThread acceptThread;
     private ConnectThread connectThread;
+    private ConnectedThread connectedThread;
+    private Handler handler = new Handler(); // TODO
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -193,12 +201,17 @@ public class BluetoothMainActivity extends AppCompatActivity {
         bluetoothDevicesString.remove(index);
     }
 
-    private BluetoothDevice getBluetoothDevice(BluetoothDevice device) {
-        return bluetoothDevices.get(bluetoothDevices.indexOf(device));
-    }
-
     private BluetoothDevice getBluetoothDeviceFromIndex(int index) {
         return bluetoothDevices.get(index);
+    }
+
+    private synchronized void connected(BluetoothSocket socket) {
+        BluetoothDevice device = socket.getRemoteDevice();
+        Log.d(TAG, "Connection accepted");
+        snakeBar(R.string.new_connection);
+
+        connectedThread = new ConnectedThread(socket);
+        connectedThread.start();
     }
 
     private void snakeBar(int resId) {
@@ -232,9 +245,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
                     break;
                 }
                 if (socket != null) {
-                    Log.d(TAG, "Connection accepted");
-                    snakeBar(R.string.new_connection);
-                    // TODO manage connected socket
+                    connected(socket);
                     /*try {
                         bluetoothServerSocket.close();
                     } catch (IOException e) {
@@ -265,9 +276,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
             try {
                 tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
-            } catch (IOException e) {
-                snakeBar("PROBLEME MEC !");
-            }
+            } catch (IOException e) { }
             bluetoothSocket = tmp;
             Log.d(TAG, "Socket created");
             snakeBar(R.string.new_socket);
@@ -289,12 +298,76 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 return;
             }
 
-            // TODO manage connected socket
+            connected(bluetoothSocket);
         }
 
         public void cancel() {
             try {
                 bluetoothSocket.close();
+            } catch (IOException e) { }
+        }
+    }
+
+    private class ConnectedThread extends Thread {
+        private final BluetoothSocket socket;
+        private final BluetoothDevice device;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+        private ScheduledExecutorService messageLoopScheduler;
+        private byte test = (byte)(Math.random() * 100);
+
+        public ConnectedThread(BluetoothSocket socket) {
+            this.socket = socket;
+            device = socket.getRemoteDevice();
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
+
+            try {
+                tmpIn = socket.getInputStream();
+                tmpOut = socket.getOutputStream();
+            } catch (IOException e) { }
+
+            inputStream = tmpIn;
+            outputStream = tmpOut;
+
+            messageLoopScheduler = Executors.newScheduledThreadPool(7);
+        }
+
+        public void run() {
+            byte[] buffer = new byte[1024];
+            int bytes;
+
+            messageLoopScheduler.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    byte[] tmp = new byte[1];
+                    tmp[0] = test;
+                    write(tmp);
+                }
+            }, 0, 10, TimeUnit.SECONDS);
+
+            while (true) {
+                try {
+                    bytes = inputStream.read(buffer);
+                    snakeBar("Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
+                    Log.d(TAG, "Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
+                } catch (IOException e) {
+                    break;
+                }
+            }
+        }
+
+        public void write(byte[] bytes) {
+            try {
+                outputStream.write(bytes);
+                snakeBar("Send " + String.valueOf(bytes[0])  + " : " + device.getName());
+                Log.d(TAG, "Send " + String.valueOf(bytes[0])  + " : " + device.getName());
+            } catch (IOException e) { }
+        }
+
+        public void cancel() {
+            try {
+                socket.close();
             } catch (IOException e) { }
         }
     }
