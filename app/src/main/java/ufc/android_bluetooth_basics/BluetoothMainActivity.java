@@ -228,7 +228,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
         public AcceptThread() {
             BluetoothServerSocket tmp = null;
             try {
-                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(NAME, MY_UUID);
+                tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(NAME, MY_UUID);
             } catch (IOException e) { }
             bluetoothServerSocket = tmp;
         }
@@ -275,7 +275,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
             bluetoothDevice = device;
 
             try {
-                tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+                tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
             } catch (IOException e) { }
             bluetoothSocket = tmp;
             Log.d(TAG, "Socket created");
