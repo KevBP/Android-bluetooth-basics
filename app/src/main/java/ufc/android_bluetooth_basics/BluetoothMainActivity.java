@@ -58,9 +58,9 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 if (!bluetoothDevices.contains(device)) {
                     addBluetoothDevice(device);
                     arrayAdapter.notifyDataSetChanged();
+                    snackBar(R.string.found);
+                    Log.d(TAG, "Device found: " + device.getName());
                 }
-                snackBar(R.string.found);
-                Log.d(TAG, "Device found: " + device.getName());
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
                 snackBar(R.string.end_discovering);
                 Log.d(TAG, "Ended discovering");
@@ -87,9 +87,9 @@ public class BluetoothMainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         listViewDevices = (ListView) findViewById(R.id.listViewDevices);
-        bluetoothDevices = new ArrayList<BluetoothDevice>();
-        bluetoothDevicesString = new ArrayList<String>();
-        arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, bluetoothDevicesString);
+        bluetoothDevices = new ArrayList<>();
+        bluetoothDevicesString = new ArrayList<>();
+        arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, bluetoothDevicesString);
         listViewDevices.setAdapter(arrayAdapter);
         listViewDevices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -251,8 +251,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
 
         public void run() {
             Log.d(TAG, "Start server");
-            //snackBar(R.string.start_server);
-            BluetoothSocket socket = null;
+            BluetoothSocket socket;
             while (true) {
                 try {
                     socket = bluetoothServerSocket.accept();
@@ -262,17 +261,9 @@ public class BluetoothMainActivity extends AppCompatActivity {
                 }
                 if (socket != null) {
                     connected(socket);
-                    /*try {
-                        bluetoothServerSocket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        Log.d(TAG, "Can't stop server");
-                    }
-                    break;*/
                 }
             }
             Log.d(TAG, "Stop server");
-            //snackBar(R.string.stop_server);
         }
 
         public void cancel() {
@@ -297,13 +288,11 @@ public class BluetoothMainActivity extends AppCompatActivity {
             }
             bluetoothSocket = tmp;
             Log.d(TAG, "Socket created");
-            //snackBar(R.string.new_socket);
         }
 
         public void run() {
             if (bluetoothAdapter.isDiscovering()) {
                 bluetoothAdapter.cancelDiscovery();
-                //snackBar(R.string.end_discovering);
                 Log.d(TAG, "Ended discovering");
             }
 
@@ -370,7 +359,6 @@ public class BluetoothMainActivity extends AppCompatActivity {
             while (true) {
                 try {
                     bytes = inputStream.read(buffer);
-                    //snackBar("Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
                     snackBar("Receive from " + device.getName());
                     Log.d(TAG, "Receive " + String.valueOf(buffer[0]) + " : " + device.getName());
                 } catch (IOException e) {
@@ -382,8 +370,6 @@ public class BluetoothMainActivity extends AppCompatActivity {
         public void write(byte[] bytes) {
             try {
                 outputStream.write(bytes);
-                //snackBar("Send " + String.valueOf(bytes[0])  + " : " + device.getName());
-                //snackBar("Send to " + device.getName());
                 Log.d(TAG, "Send " + String.valueOf(bytes[0]) + " : " + device.getName());
             } catch (IOException e) {
             }
