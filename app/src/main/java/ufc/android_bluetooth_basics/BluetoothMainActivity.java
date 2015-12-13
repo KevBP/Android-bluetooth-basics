@@ -41,6 +41,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
     private final UUID MY_UUID = UUID.fromString("46b70f01-7bd0-44f9-8dcb-22b3e0e00fb5");
     private final int DISCOVERABLE_TIMEOUT = 0;
     private ListView listViewDevices;
+    private Toolbar toolbar;
     private BluetoothAdapter bluetoothAdapter;
     private List<BluetoothDevice> bluetoothDevices;
     private List<String> bluetoothDevicesString;
@@ -62,6 +63,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
                     Log.d(TAG, "Device found: " + device.getName());
                 }
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
+                toolbar.setBackgroundResource(R.color.colorPrimary);
                 snackBar(R.string.end_discovering);
                 Log.d(TAG, "Ended discovering");
             } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(intent.getAction())) {
@@ -83,7 +85,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         listViewDevices = (ListView) findViewById(R.id.listViewDevices);
@@ -107,6 +109,7 @@ public class BluetoothMainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if (bluetoothAdapter.startDiscovery()) {
+                    toolbar.setBackgroundResource(R.color.colorPrimary2);
                     snackBar(R.string.start_discovering);
                     Log.d(TAG, "Discovering start");
                 } else {
